@@ -1,0 +1,104 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <pre></pre>
+    <div>
+        <input type="text" id="name">
+        <input type="text" id="msg">
+        <button id="send">Send</button>
+    </div>
+
+</body>
+<script>
+    const cursors = [];
+    const pre = document.querySelector('pre');
+    const ct = (data)=>{
+        const e = document.createTextNode(JSON.stringify(data));
+        pre.appendChild(e);
+    }
+    var conn = new WebSocket('ws://192.168.43.199:8081');
+    conn.onopen = function(e) {
+        ct("Connection established!");
+    };
+
+    conn.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log(data);
+        if(data.data.action == 'chat'){
+            ct(data);
+        }else if(data.data.action == 'joinCursor'){
+            createCursor(data);
+        }
+        else if(data.data.action == 'leaveCursor'){
+            deleteCursor(data);
+        }else if(data.data.action == 'mouseClick'){
+            clickCursor(data);
+        }
+        else{
+            updateCursor(data);
+        }
+    };
+
+    document.getElementById('send').onclick = ()=>{
+        conn.send(JSON.stringify({
+            name:document.getElementById('name').value,
+            msg:document.getElementById('msg').value,
+            action:'chat'
+        }))
+    }
+
+    window.onmousemove = (e)=>{
+        if(cursors.length > 0){
+            conn.send(JSON.stringify({
+                x:e.clientX,
+                y:e.clientY,
+                action:'mouseMove'
+            }))
+        }
+    }
+
+    window.onclick = ()=>{
+        if(cursors.length > 0){
+            conn.send(JSON.stringify({
+                action:'mouseClick'
+            }))
+        }
+    }
+
+    function updateCursor(data){
+        const cursor = cursors[data.id];
+        if(cursor){
+            cursor.style.top = `${data.data.y}px`
+            cursor.style.left = `${data.data.x}px`
+        }else{
+            createCursor(data)
+        }
+    }
+
+    function createCursor(data){
+        const e = document.createElement('div');
+        e.setAttribute('style','position: absolute;width: 50px;height: 50px;z-index: 100');
+        e.style.background = '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
+        e.innerText = data.id;
+        document.body.appendChild(e);
+        cursors[data.id] = e;
+    }
+
+    function deleteCursor(data){
+        document.body.removeChild(cursors[data.id]);
+    }
+
+    function clickCursor(data){
+        const cursor = cursors[data.id];
+        if(cursor){
+            cursor.style.background = '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0');
+        }else{
+            createCursor(data)
+        }
+    }
+</script>
+</html>
